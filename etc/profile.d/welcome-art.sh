@@ -71,8 +71,8 @@ if [[ -z "${TERM:-}" ]] || [[ "$TERM" == "dumb" ]]; then
     return 0
 fi
 
-# Check if this is a login shell (avoid running multiple times)
-if [[ "$0" != "-"* ]] && [[ -z "${WELCOME_ART_EXECUTED:-}" ]]; then
+# Avoid running multiple times in the same session
+if [[ -z "${WELCOME_ART_EXECUTED:-}" ]]; then
     # Mark as executed to prevent multiple runs in the same session
     export WELCOME_ART_EXECUTED="true"
     

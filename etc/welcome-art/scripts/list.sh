@@ -190,7 +190,8 @@ list_templates_in_dir() {
     "size": "$size",
     "modified": $mtime_ts,
     "path": "$template_file"
-  }EOF
+  }
+EOF
                 ;;
         esac
         

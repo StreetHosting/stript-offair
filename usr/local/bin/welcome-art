@@ -302,6 +302,11 @@ main() {
                 quiet="true"
                 shift
                 ;;
+            --auto)
+                # Auto-execution mode (called from profile script)
+                quiet="false"
+                shift
+                ;;
             --help)
                 show_help
                 exit "$EXIT_SUCCESS"
