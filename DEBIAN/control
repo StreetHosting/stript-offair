@@ -1,0 +1,31 @@
+Package: welcome-art
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: all
+Depends: figlet, lolcat, bash (>= 4.0)
+Recommends: git, wget, unzip
+Maintainer: Welcome-Art Team <support@welcome-art.org>
+Description: Dynamic figlet art with gradient effects for SSH/VPS login
+ Welcome-Art is a comprehensive modular bash script package that displays
+ dynamic figlet art with gradient effects and customizable text upon
+ SSH/VPS login. It provides a beautiful and informative welcome screen
+ for Ubuntu 18+ systems.
+ .
+ Features:
+  * Dynamic figlet art rendering with lolcat gradient effects
+  * Modular template system with customizable art styles
+  * System-wide and user-level configuration support
+  * Automatic execution on SSH login
+  * Template management and updates
+  * 256-color terminal support
+  * Comprehensive logging and error handling
+ .
+ The package includes:
+  * Main executable (/usr/local/bin/welcome-art)
+  * Configuration files (/etc/welcome-art/config)
+  * Art template storage (/etc/welcome-art/art/)
+  * Subcommand modules (/etc/welcome-art/scripts/)
+  * Auto-execution trigger (/etc/profile.d/welcome-art.sh)
+Homepage: https://github.com/welcome-art/welcome-art
+Bugs: https://github.com/welcome-art/welcome-art/issues

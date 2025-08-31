@@ -1,0 +1,312 @@
+#!/bin/bash
+
+# Welcome-Art Post-Removal Script
+# Performs final cleanup after package removal
+
+set -e
+
+# Configuration
+PACKAGE_NAME="welcome-art"
+SYSTEM_CONFIG_DIR="/etc/welcome-art"
+WELCOME_ART_BIN="/usr/local/bin/welcome-art"
+PROFILE_SCRIPT="/etc/profile.d/welcome-art.sh"
+LOG_FILE="/var/log/welcome-art.log"
+LOG_DIR="$(dirname "$LOG_FILE")"
+
+# Logging function (may not work if log file is removed)
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    echo "[$timestamp] [$level] [POSTRM] $message" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+# Remove system configuration directory
+remove_system_config() {
+    echo "Removing system configuration..."
+    
+    if [[ -d "$SYSTEM_CONFIG_DIR" ]]; then
+        echo "Removing directory: $SYSTEM_CONFIG_DIR"
+        
+        # List contents before removal for logging
+        if [[ -f "$LOG_FILE" ]]; then
+            echo "Contents being removed:" >> "$LOG_FILE" 2>/dev/null || true
+            find "$SYSTEM_CONFIG_DIR" -type f >> "$LOG_FILE" 2>/dev/null || true
+        fi
+        
+        # Remove the entire configuration directory
+        if rm -rf "$SYSTEM_CONFIG_DIR" 2>/dev/null; then
+            echo "System configuration removed successfully."
+            log_message "INFO" "System configuration directory removed"
+        else
+            echo "Warning: Could not remove system configuration directory."
+            echo "Manual removal may be required: $SYSTEM_CONFIG_DIR"
+        fi
+    else
+        echo "System configuration directory not found."
+        log_message "INFO" "System configuration directory not found"
+    fi
+}
+
+# Remove main executable
+remove_executable() {
+    echo "Removing main executable..."
+    
+    if [[ -f "$WELCOME_ART_BIN" ]]; then
+        if rm -f "$WELCOME_ART_BIN" 2>/dev/null; then
+            echo "Main executable removed: $WELCOME_ART_BIN"
+            log_message "INFO" "Main executable removed"
+        else
+            echo "Warning: Could not remove main executable."
+            echo "Manual removal may be required: $WELCOME_ART_BIN"
+            log_message "WARN" "Failed to remove main executable"
+        fi
+    else
+        echo "Main executable not found."
+        log_message "INFO" "Main executable not found"
+    fi
+}
+
+# Remove profile script
+remove_profile_script() {
+    echo "Removing profile script..."
+    
+    if [[ -f "$PROFILE_SCRIPT" ]]; then
+        if rm -f "$PROFILE_SCRIPT" 2>/dev/null; then
+            echo "Profile script removed: $PROFILE_SCRIPT"
+            log_message "INFO" "Profile script removed"
+        else
+            echo "Warning: Could not remove profile script."
+            echo "Manual removal may be required: $PROFILE_SCRIPT"
+            log_message "WARN" "Failed to remove profile script"
+        fi
+    else
+        echo "Profile script not found."
+        log_message "INFO" "Profile script not found"
+    fi
+    
+    # Also remove backup if it exists
+    local backup_script="${PROFILE_SCRIPT}.backup"
+    if [[ -f "$backup_script" ]]; then
+        if rm -f "$backup_script" 2>/dev/null; then
+            echo "Profile script backup removed: $backup_script"
+            log_message "INFO" "Profile script backup removed"
+        fi
+    fi
+}
+
+# Clean up temporary files
+cleanup_temp_files() {
+    echo "Cleaning up temporary files..."
+    
+    # Remove any welcome-art related temporary files
+    local temp_patterns=(
+        "/tmp/welcome-art-*"
+        "/tmp/.welcome-art-*"
+        "/var/tmp/welcome-art-*"
+    )
+    
+    local cleaned_files=0
+    
+    for pattern in "${temp_patterns[@]}"; do
+        # Use find to safely handle patterns
+        while IFS= read -r -d '' temp_file; do
+            if rm -rf "$temp_file" 2>/dev/null; then
+                echo "Removed temporary file: $temp_file"
+                ((cleaned_files++))
+            fi
+        done < <(find "$(dirname "$pattern")" -name "$(basename "$pattern")" -print0 2>/dev/null || true)
+    done
+    
+    if [[ "$cleaned_files" -gt 0 ]]; then
+        echo "Cleaned up $cleaned_files temporary file(s)."
+        log_message "INFO" "Cleaned up $cleaned_files temporary files"
+    else
+        echo "No temporary files found to clean up."
+        log_message "INFO" "No temporary files to clean up"
+    fi
+}
+
+# Remove log file (last step)
+remove_log_file() {
+    echo "Removing log file..."
+    
+    if [[ -f "$LOG_FILE" ]]; then
+        # Final log entry
+        log_message "INFO" "Welcome-Art package removal completed"
+        
+        # Remove log file
+        if rm -f "$LOG_FILE" 2>/dev/null; then
+            echo "Log file removed: $LOG_FILE"
+        else
+            echo "Warning: Could not remove log file: $LOG_FILE"
+        fi
+    else
+        echo "Log file not found."
+    fi
+    
+    # Remove log directory if empty
+    if [[ -d "$LOG_DIR" ]]; then
+        if rmdir "$LOG_DIR" 2>/dev/null; then
+            echo "Empty log directory removed: $LOG_DIR"
+        fi
+    fi
+}
+
+# Check for remaining user data
+check_user_data() {
+    echo "Checking for remaining user data..."
+    
+    local user_configs=()
+    local user_templates=()
+    
+    # Find user configuration files
+    while IFS= read -r -d '' config_file; do
+        user_configs+=("$config_file")
+    done < <(find /home -name ".welcome-artrc" -type f -print0 2>/dev/null || true)
+    
+    # Find user template directories
+    while IFS= read -r -d '' template_dir; do
+        user_templates+=("$template_dir")
+    done < <(find /home -name ".welcome-art" -type d -print0 2>/dev/null || true)
+    
+    if [[ ${#user_configs[@]} -gt 0 ]] || [[ ${#user_templates[@]} -gt 0 ]]; then
+        echo
+        echo "User data still present:"
+        
+        if [[ ${#user_configs[@]} -gt 0 ]]; then
+            echo "Configuration files:"
+            printf '  %s\n' "${user_configs[@]}"
+        fi
+        
+        if [[ ${#user_templates[@]} -gt 0 ]]; then
+            echo "Template directories:"
+            printf '  %s\n' "${user_templates[@]}"
+        fi
+        
+        echo
+        echo "To completely remove user data, run:"
+        echo "  sudo find /home -name '.welcome-artrc' -delete"
+        echo "  sudo find /home -name '.welcome-art' -type d -exec rm -rf {} +"
+        echo
+    else
+        echo "No user data found."
+    fi
+}
+
+# Show removal completion message
+show_completion_message() {
+    echo
+    echo "Welcome-Art removal completed!"
+    echo "=============================="
+    echo
+    echo "The following components have been removed:"
+    echo "  * Main executable (/usr/local/bin/welcome-art)"
+    echo "  * System configuration (/etc/welcome-art/)"
+    echo "  * Auto-execution script (/etc/profile.d/welcome-art.sh)"
+    echo "  * Log files (/var/log/welcome-art.log)"
+    echo "  * Temporary files"
+    echo
+    echo "User configurations and custom templates may still exist."
+    echo "Check above for details on remaining user data."
+    echo
+    echo "Thank you for using Welcome-Art!"
+    echo "For support or to reinstall: https://github.com/welcome-art/welcome-art"
+    echo
+}
+
+# Handle purge-specific cleanup
+purge_cleanup() {
+    echo "Performing purge cleanup..."
+    
+    # More aggressive cleanup for purge
+    local purge_patterns=(
+        "/home/*/.welcome-artrc"
+        "/home/*/.welcome-art"
+        "/root/.welcome-artrc"
+        "/root/.welcome-art"
+    )
+    
+    echo "Warning: Purge will remove ALL user data!"
+    echo "This includes user configurations and custom templates."
+    
+    # Give a brief pause for the user to see the warning
+    sleep 2
+    
+    local purged_items=0
+    
+    for pattern in "${purge_patterns[@]}"; do
+        # Use find to safely handle patterns
+        local base_dir="$(dirname "$pattern")"
+        local file_pattern="$(basename "$pattern")"
+        
+        if [[ "$base_dir" == "/home/*" ]]; then
+            # Handle /home/* specially
+            while IFS= read -r -d '' user_item; do
+                if rm -rf "$user_item" 2>/dev/null; then
+                    echo "Purged: $user_item"
+                    ((purged_items++))
+                fi
+            done < <(find /home -maxdepth 2 -name "$file_pattern" -print0 2>/dev/null || true)
+        else
+            # Handle other patterns
+            while IFS= read -r -d '' item; do
+                if rm -rf "$item" 2>/dev/null; then
+                    echo "Purged: $item"
+                    ((purged_items++))
+                fi
+            done < <(find "$base_dir" -name "$file_pattern" -print0 2>/dev/null || true)
+        fi
+    done
+    
+    if [[ "$purged_items" -gt 0 ]]; then
+        echo "Purged $purged_items user data item(s)."
+    else
+        echo "No user data found to purge."
+    fi
+}
+
+# Main removal process
+main() {
+    case "$1" in
+        remove)
+            echo "Removing $PACKAGE_NAME..."
+            log_message "INFO" "Starting post-removal process: remove"
+            
+            remove_profile_script
+            cleanup_temp_files
+            check_user_data
+            remove_log_file
+            show_completion_message
+            ;;
+        purge)
+            echo "Purging $PACKAGE_NAME..."
+            log_message "INFO" "Starting post-removal process: purge"
+            
+            remove_system_config
+            remove_executable
+            remove_profile_script
+            cleanup_temp_files
+            purge_cleanup
+            remove_log_file
+            show_completion_message
+            ;;
+        upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+            echo "$PACKAGE_NAME post-removal: $1"
+            log_message "INFO" "Post-removal process: $1"
+            
+            # Minimal cleanup for these cases
+            cleanup_temp_files
+            ;;
+        *)
+            echo "postrm called with unknown argument \`$1'" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"
+
+exit 0

@@ -1,0 +1,343 @@
+#!/bin/bash
+
+# Welcome-Art Package - Main Executable
+# Version: 1.0.0
+# Description: Displays dynamic figlet art with gradient effects upon login
+# Author: Welcome-Art Team
+
+set -euo pipefail
+
+# Global variables
+SCRIPT_NAME="welcome-art"
+VERSION="1.0.0"
+SYSTEM_CONFIG_DIR="/etc/welcome-art"
+SYSTEM_CONFIG_FILE="$SYSTEM_CONFIG_DIR/config"
+USER_CONFIG_FILE="$HOME/.welcome-artrc"
+ART_DIR="$SYSTEM_CONFIG_DIR/art"
+SCRIPTS_DIR="$SYSTEM_CONFIG_DIR/scripts"
+LOG_FILE="/var/log/welcome-art.log"
+
+# Default configuration values
+DEFAULT_TEMPLATE="default"
+DEFAULT_WELCOME_TEXT="Welcome to the server!"
+DEFAULT_COLOR_ENABLED=true
+DEFAULT_TIMEOUT=5
+
+# Exit codes
+EXIT_SUCCESS=0
+EXIT_GENERAL_ERROR=1
+EXIT_MISSING_DEPS=2
+EXIT_CONFIG_ERROR=3
+EXIT_TEMPLATE_NOT_FOUND=4
+EXIT_PERMISSION_DENIED=5
+
+# Logging function
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    if [[ -w "$(dirname "$LOG_FILE")" ]] 2>/dev/null; then
+        echo "[$timestamp] [$level] $message" >> "$LOG_FILE" 2>/dev/null || true
+    fi
+}
+
+# Error handling
+error_exit() {
+    local message="$1"
+    local exit_code="${2:-$EXIT_GENERAL_ERROR}"
+    
+    echo "Error: $message" >&2
+    log_message "ERROR" "$message"
+    exit "$exit_code"
+}
+
+# Check dependencies
+check_dependencies() {
+    local missing_deps=()
+    
+    if ! command -v figlet >/dev/null 2>&1; then
+        missing_deps+=("figlet")
+    fi
+    
+    if ! command -v lolcat >/dev/null 2>&1; then
+        missing_deps+=("lolcat")
+    fi
+    
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        error_exit "Missing dependencies: ${missing_deps[*]}. Please install them first." "$EXIT_MISSING_DEPS"
+    fi
+}
+
+# Parse configuration file
+parse_config() {
+    local config_file="$1"
+    
+    if [[ ! -f "$config_file" ]]; then
+        return 0
+    fi
+    
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+        
+        # Remove leading/trailing whitespace
+        key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"\|"$//g')
+        
+        case "$key" in
+            "default_template") TEMPLATE="$value" ;;
+            "welcome_text") WELCOME_TEXT="$value" ;;
+            "color_enabled") COLOR_ENABLED="$value" ;;
+            "timeout") TIMEOUT="$value" ;;
+        esac
+    done < "$config_file"
+}
+
+# Load configuration
+load_config() {
+    # Set defaults
+    TEMPLATE="$DEFAULT_TEMPLATE"
+    WELCOME_TEXT="$DEFAULT_WELCOME_TEXT"
+    COLOR_ENABLED="$DEFAULT_COLOR_ENABLED"
+    TIMEOUT="$DEFAULT_TIMEOUT"
+    
+    # Load system config
+    parse_config "$SYSTEM_CONFIG_FILE"
+    
+    # Load user config (overrides system config)
+    parse_config "$USER_CONFIG_FILE"
+    
+    log_message "INFO" "Configuration loaded: template=$TEMPLATE, color_enabled=$COLOR_ENABLED"
+}
+
+# Validate template
+validate_template() {
+    local template_name="$1"
+    local template_file="$ART_DIR/$template_name.art"
+    
+    if [[ ! -f "$template_file" ]]; then
+        error_exit "Template '$template_name' not found at $template_file" "$EXIT_TEMPLATE_NOT_FOUND"
+    fi
+    
+    echo "$template_file"
+}
+
+# Render figlet art with lolcat
+render_art() {
+    local template_file="$1"
+    local text="$2"
+    local use_color="$3"
+    
+    # Parse template file for figlet settings
+    local figlet_font="slant"
+    local figlet_width="80"
+    local color_style="rainbow"
+    
+    if [[ -f "$template_file" ]]; then
+        while IFS='=' read -r key value; do
+            [[ "$key" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "$key" ]] && continue
+            
+            key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"\|"$//g')
+            
+            case "$key" in
+                "font") figlet_font="$value" ;;
+                "width") figlet_width="$value" ;;
+                "style") color_style="$value" ;;
+            esac
+        done < "$template_file"
+    fi
+    
+    # Replace template variables
+    text=$(echo "$text" | sed "s/{{HOSTNAME}}/$(hostname)/g")
+    text=$(echo "$text" | sed "s/{{USER}}/$USER/g")
+    
+    # Generate figlet art
+    local figlet_output
+    if command -v figlet >/dev/null 2>&1; then
+        figlet_output=$(figlet -f "$figlet_font" -w "$figlet_width" "$text" 2>/dev/null || figlet "$text")
+    else
+        figlet_output="$text"
+    fi
+    
+    # Apply color if enabled
+    if [[ "$use_color" == "true" ]] && command -v lolcat >/dev/null 2>&1; then
+        echo "$figlet_output" | lolcat
+    else
+        echo "$figlet_output"
+    fi
+}
+
+# Display welcome message
+display_welcome() {
+    local template="${1:-$TEMPLATE}"
+    local welcome_text="${2:-$WELCOME_TEXT}"
+    local no_color="${3:-false}"
+    local quiet="${4:-false}"
+    
+    if [[ "$quiet" == "true" ]]; then
+        return 0
+    fi
+    
+    local use_color="true"
+    if [[ "$no_color" == "true" ]] || [[ "$COLOR_ENABLED" != "true" ]]; then
+        use_color="false"
+    fi
+    
+    local template_file
+    template_file=$(validate_template "$template")
+    
+    echo
+    render_art "$template_file" "$(hostname)" "$use_color"
+    echo
+    
+    if [[ -n "$welcome_text" ]]; then
+        if [[ "$use_color" == "true" ]] && command -v lolcat >/dev/null 2>&1; then
+            echo "$welcome_text" | lolcat
+        else
+            echo "$welcome_text"
+        fi
+        echo
+    fi
+    
+    log_message "INFO" "Welcome art displayed: template=$template"
+}
+
+# Execute subcommand
+execute_subcommand() {
+    local subcommand="$1"
+    shift
+    
+    local script_file="$SCRIPTS_DIR/$subcommand.sh"
+    
+    if [[ ! -f "$script_file" ]]; then
+        error_exit "Unknown subcommand: $subcommand" "$EXIT_GENERAL_ERROR"
+    fi
+    
+    if [[ ! -x "$script_file" ]]; then
+        error_exit "Subcommand script not executable: $script_file" "$EXIT_PERMISSION_DENIED"
+    fi
+    
+    log_message "INFO" "Executing subcommand: $subcommand"
+    exec "$script_file" "$@"
+}
+
+# Show help
+show_help() {
+    cat << EOF
+Usage: $SCRIPT_NAME [OPTIONS] [SUBCOMMAND]
+
+Display dynamic figlet art with gradient effects.
+
+OPTIONS:
+    --template TEMPLATE    Specify template to use
+    --text TEXT           Custom welcome text
+    --no-color            Disable color output
+    --quiet               Suppress output
+    --help                Display this help
+    --version             Show version information
+
+SUBCOMMANDS:
+    update                Download latest art templates
+    config [--user|--system]  Edit configuration
+    list [--preview]      List available templates
+    set TEMPLATE          Set active template
+
+EXIT CODES:
+    0    Success
+    1    General error
+    2    Missing dependencies
+    3    Configuration error
+    4    Template not found
+    5    Permission denied
+
+FILES:
+    $SYSTEM_CONFIG_FILE    System configuration
+    $USER_CONFIG_FILE      User configuration
+    $ART_DIR/              Art templates
+    $LOG_FILE              Application log
+
+EXAMPLES:
+    $SCRIPT_NAME                           # Display default welcome art
+    $SCRIPT_NAME --template modern         # Use specific template
+    $SCRIPT_NAME --text "Hello World"      # Custom welcome text
+    $SCRIPT_NAME list --preview            # List templates with previews
+    $SCRIPT_NAME set modern                # Set default template
+
+EOF
+}
+
+# Show version
+show_version() {
+    echo "$SCRIPT_NAME version $VERSION"
+}
+
+# Main function
+main() {
+    local template=""
+    local welcome_text=""
+    local no_color="false"
+    local quiet="false"
+    local subcommand=""
+    
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --template)
+                template="$2"
+                shift 2
+                ;;
+            --text)
+                welcome_text="$2"
+                shift 2
+                ;;
+            --no-color)
+                no_color="true"
+                shift
+                ;;
+            --quiet)
+                quiet="true"
+                shift
+                ;;
+            --help)
+                show_help
+                exit "$EXIT_SUCCESS"
+                ;;
+            --version)
+                show_version
+                exit "$EXIT_SUCCESS"
+                ;;
+            update|config|list|set)
+                subcommand="$1"
+                shift
+                break
+                ;;
+            --*)
+                error_exit "Unknown option: $1" "$EXIT_GENERAL_ERROR"
+                ;;
+            *)
+                error_exit "Unknown argument: $1" "$EXIT_GENERAL_ERROR"
+                ;;
+        esac
+    done
+    
+    # Check dependencies
+    check_dependencies
+    
+    # Load configuration
+    load_config
+    
+    # Execute subcommand if provided
+    if [[ -n "$subcommand" ]]; then
+        execute_subcommand "$subcommand" "$@"
+    fi
+    
+    # Display welcome art
+    display_welcome "$template" "$welcome_text" "$no_color" "$quiet"
+}
+
+# Run main function with all arguments
+main "$@"

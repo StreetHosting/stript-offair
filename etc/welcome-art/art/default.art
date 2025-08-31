@@ -1,0 +1,44 @@
+# Default Welcome-Art Template
+# This is the default template used when no specific template is selected
+
+[metadata]
+name=Default
+author=Welcome-Art Team
+version=1.0
+description=Simple default design with standard figlet font
+
+[figlet]
+# Figlet font to use (must be installed on system)
+font=slant
+
+# Maximum width for figlet output
+width=80
+
+# Text alignment (left, center, right)
+alignment=center
+
+[colors]
+# Color style for lolcat (rainbow, fire, plasma, etc.)
+style=rainbow
+
+# Animation speed (slow, medium, fast)
+speed=medium
+
+# Reverse color direction
+reverse=false
+
+# Color frequency (lower = more spread out colors)
+frequency=0.1
+
+[text]
+# Template content ({{HOSTNAME}} and {{USER}} will be replaced)
+content={{HOSTNAME}}
+
+# Text to display before the figlet art
+prefix=""
+
+# Text to display after the figlet art
+suffix=""
+
+# Additional welcome message
+welcome_message="Welcome to the server!"

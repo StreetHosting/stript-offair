@@ -1,0 +1,243 @@
+#!/bin/bash
+
+# Welcome-Art Post-Installation Script
+# Configures the system after package installation
+
+set -e
+
+# Configuration
+PACKAGE_NAME="welcome-art"
+SYSTEM_CONFIG_DIR="/etc/welcome-art"
+SYSTEM_CONFIG_FILE="$SYSTEM_CONFIG_DIR/config"
+ART_TEMPLATES_DIR="$SYSTEM_CONFIG_DIR/art"
+SCRIPTS_DIR="$SYSTEM_CONFIG_DIR/scripts"
+USER_CONFIG_TEMPLATE="$SYSTEM_CONFIG_DIR/welcome-artrc.template"
+WELCOME_ART_BIN="/usr/local/bin/welcome-art"
+PROFILE_SCRIPT="/etc/profile.d/welcome-art.sh"
+LOG_FILE="/var/log/welcome-art.log"
+LOG_DIR="$(dirname "$LOG_FILE")"
+
+# Logging function
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    echo "[$timestamp] [$level] [POSTINST] $message" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+# Create directories with proper permissions
+create_directories() {
+    echo "Creating directories..."
+    
+    # Create main configuration directory
+    mkdir -p "$SYSTEM_CONFIG_DIR"
+    chmod 755 "$SYSTEM_CONFIG_DIR"
+    
+    # Create subdirectories
+    mkdir -p "$ART_TEMPLATES_DIR"
+    chmod 755 "$ART_TEMPLATES_DIR"
+    
+    mkdir -p "$SCRIPTS_DIR"
+    chmod 755 "$SCRIPTS_DIR"
+    
+    # Create log directory if it doesn't exist
+    mkdir -p "$LOG_DIR"
+    chmod 755 "$LOG_DIR"
+    
+    # Create log file with proper permissions
+    touch "$LOG_FILE"
+    chmod 644 "$LOG_FILE"
+    
+    log_message "INFO" "Directories created successfully"
+}
+
+# Set file permissions
+set_permissions() {
+    echo "Setting file permissions..."
+    
+    # Main executable
+    if [[ -f "$WELCOME_ART_BIN" ]]; then
+        chmod 755 "$WELCOME_ART_BIN"
+        chown root:root "$WELCOME_ART_BIN"
+    fi
+    
+    # Configuration files
+    if [[ -f "$SYSTEM_CONFIG_FILE" ]]; then
+        chmod 644 "$SYSTEM_CONFIG_FILE"
+        chown root:root "$SYSTEM_CONFIG_FILE"
+    fi
+    
+    if [[ -f "$USER_CONFIG_TEMPLATE" ]]; then
+        chmod 644 "$USER_CONFIG_TEMPLATE"
+        chown root:root "$USER_CONFIG_TEMPLATE"
+    fi
+    
+    # Art templates
+    if [[ -d "$ART_TEMPLATES_DIR" ]]; then
+        find "$ART_TEMPLATES_DIR" -name "*.art" -type f -exec chmod 644 {} \;
+        find "$ART_TEMPLATES_DIR" -name "*.art" -type f -exec chown root:root {} \;
+    fi
+    
+    # Script modules
+    if [[ -d "$SCRIPTS_DIR" ]]; then
+        find "$SCRIPTS_DIR" -name "*.sh" -type f -exec chmod 755 {} \;
+        find "$SCRIPTS_DIR" -name "*.sh" -type f -exec chown root:root {} \;
+    fi
+    
+    # Profile script
+    if [[ -f "$PROFILE_SCRIPT" ]]; then
+        chmod 644 "$PROFILE_SCRIPT"
+        chown root:root "$PROFILE_SCRIPT"
+    fi
+    
+    log_message "INFO" "File permissions set successfully"
+}
+
+# Check dependencies
+check_dependencies() {
+    echo "Checking dependencies..."
+    
+    local missing_deps=()
+    
+    # Check required dependencies
+    if ! command -v figlet >/dev/null 2>&1; then
+        missing_deps+=("figlet")
+    fi
+    
+    if ! command -v lolcat >/dev/null 2>&1; then
+        missing_deps+=("lolcat")
+    fi
+    
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        echo "Warning: Missing required dependencies: ${missing_deps[*]}"
+        echo "Please install them manually:"
+        echo "  sudo apt-get update"
+        echo "  sudo apt-get install ${missing_deps[*]}"
+        log_message "WARN" "Missing dependencies: ${missing_deps[*]}"
+    else
+        echo "All required dependencies are installed."
+        log_message "INFO" "All dependencies satisfied"
+    fi
+    
+    # Check optional dependencies
+    local missing_optional=()
+    
+    if ! command -v git >/dev/null 2>&1; then
+        missing_optional+=("git")
+    fi
+    
+    if ! command -v wget >/dev/null 2>&1; then
+        missing_optional+=("wget")
+    fi
+    
+    if ! command -v unzip >/dev/null 2>&1; then
+        missing_optional+=("unzip")
+    fi
+    
+    if [[ ${#missing_optional[@]} -gt 0 ]]; then
+        echo "Note: Optional dependencies not installed: ${missing_optional[*]}"
+        echo "These are recommended for template updates."
+        log_message "INFO" "Missing optional dependencies: ${missing_optional[*]}"
+    fi
+}
+
+# Test installation
+test_installation() {
+    echo "Testing installation..."
+    
+    if [[ -x "$WELCOME_ART_BIN" ]]; then
+        if "$WELCOME_ART_BIN" --version >/dev/null 2>&1; then
+            echo "Installation test passed."
+            log_message "INFO" "Installation test passed"
+        else
+            echo "Warning: welcome-art executable found but not working properly."
+            log_message "WARN" "Installation test failed - executable not working"
+        fi
+    else
+        echo "Error: welcome-art executable not found or not executable."
+        log_message "ERROR" "Installation test failed - executable not found"
+    fi
+}
+
+# Configure system integration
+configure_system() {
+    echo "Configuring system integration..."
+    
+    # Ensure profile script is sourced
+    if [[ -f "$PROFILE_SCRIPT" ]]; then
+        echo "Auto-execution script installed: $PROFILE_SCRIPT"
+        log_message "INFO" "Auto-execution script configured"
+    fi
+    
+    # Add welcome-art to PATH if not already there
+    if ! echo "$PATH" | grep -q "/usr/local/bin"; then
+        echo "Note: /usr/local/bin may not be in PATH for all users."
+        echo "Consider adding it to system PATH configuration."
+        log_message "WARN" "/usr/local/bin not in PATH"
+    fi
+}
+
+# Show post-installation information
+show_info() {
+    echo
+    echo "Welcome-Art installation completed successfully!"
+    echo "============================================="
+    echo
+    echo "Usage:"
+    echo "  welcome-art                    # Display welcome art"
+    echo "  welcome-art list               # List available templates"
+    echo "  welcome-art set template NAME  # Set active template"
+    echo "  welcome-art config --user      # Edit user configuration"
+    echo "  welcome-art update             # Update templates"
+    echo "  welcome-art --help             # Show help"
+    echo
+    echo "Configuration:"
+    echo "  System: $SYSTEM_CONFIG_FILE"
+    echo "  User:   ~/.welcome-artrc"
+    echo
+    echo "Templates:"
+    echo "  System: $ART_TEMPLATES_DIR"
+    echo "  User:   ~/.welcome-art/art/"
+    echo
+    echo "Auto-execution:"
+    echo "  Welcome-Art will automatically run on SSH login."
+    echo "  To disable: welcome-art config --user"
+    echo "  Then set: auto_execute=false"
+    echo
+    echo "For more information, visit:"
+    echo "  https://github.com/welcome-art/welcome-art"
+    echo
+}
+
+# Main installation process
+main() {
+    case "$1" in
+        configure)
+            echo "Configuring $PACKAGE_NAME..."
+            log_message "INFO" "Starting post-installation configuration"
+            
+            create_directories
+            set_permissions
+            check_dependencies
+            configure_system
+            test_installation
+            show_info
+            
+            log_message "INFO" "Post-installation configuration completed"
+            ;;
+        abort-upgrade|abort-remove|abort-deconfigure)
+            echo "$PACKAGE_NAME configuration aborted."
+            log_message "WARN" "Configuration aborted: $1"
+            ;;
+        *)
+            echo "postinst called with unknown argument \`$1'" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"
+
+exit 0

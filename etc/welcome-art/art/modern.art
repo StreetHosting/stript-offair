@@ -1,0 +1,44 @@
+# Modern Welcome-Art Template
+# A contemporary design with bold fonts and vibrant colors
+
+[metadata]
+name=Modern
+author=Welcome-Art Team
+version=1.0
+description=Modern geometric design with bold fonts and vibrant colors
+
+[figlet]
+# Figlet font to use
+font=big
+
+# Maximum width for figlet output
+width=120
+
+# Text alignment
+alignment=center
+
+[colors]
+# Color style for lolcat
+style=plasma
+
+# Animation speed
+speed=fast
+
+# Reverse color direction
+reverse=false
+
+# Color frequency
+frequency=0.05
+
+[text]
+# Template content
+content={{HOSTNAME}}
+
+# Text to display before the figlet art
+prefix="┌─────────────────────────────────────────┐"
+
+# Text to display after the figlet art
+suffix="└─────────────────────────────────────────┘"
+
+# Additional welcome message
+welcome_message="🚀 Ready for innovation! Welcome {{USER}}!"

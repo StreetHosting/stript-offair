@@ -1,0 +1,249 @@
+#!/bin/bash
+
+# Welcome-Art Pre-Removal Script
+# Performs cleanup before package removal
+
+set -e
+
+# Configuration
+PACKAGE_NAME="welcome-art"
+SYSTEM_CONFIG_DIR="/etc/welcome-art"
+WELCOME_ART_BIN="/usr/local/bin/welcome-art"
+PROFILE_SCRIPT="/etc/profile.d/welcome-art.sh"
+LOG_FILE="/var/log/welcome-art.log"
+
+# Logging function
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    echo "[$timestamp] [$level] [PRERM] $message" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+# Stop any running welcome-art processes
+stop_processes() {
+    echo "Stopping any running welcome-art processes..."
+    
+    # Find and stop any welcome-art processes
+    local pids=$(pgrep -f "welcome-art" 2>/dev/null || true)
+    
+    if [[ -n "$pids" ]]; then
+        echo "Found running welcome-art processes: $pids"
+        echo "Stopping processes gracefully..."
+        
+        # Try graceful shutdown first
+        echo "$pids" | xargs -r kill -TERM 2>/dev/null || true
+        sleep 2
+        
+        # Force kill if still running
+        local remaining_pids=$(pgrep -f "welcome-art" 2>/dev/null || true)
+        if [[ -n "$remaining_pids" ]]; then
+            echo "Force stopping remaining processes: $remaining_pids"
+            echo "$remaining_pids" | xargs -r kill -KILL 2>/dev/null || true
+        fi
+        
+        log_message "INFO" "Stopped welcome-art processes"
+    else
+        echo "No running welcome-art processes found."
+        log_message "INFO" "No running processes to stop"
+    fi
+}
+
+# Disable auto-execution
+disable_auto_execution() {
+    echo "Disabling auto-execution..."
+    
+    if [[ -f "$PROFILE_SCRIPT" ]]; then
+        # Create backup before removal
+        if cp "$PROFILE_SCRIPT" "${PROFILE_SCRIPT}.backup" 2>/dev/null; then
+            echo "Backup created: ${PROFILE_SCRIPT}.backup"
+            log_message "INFO" "Profile script backup created"
+        fi
+        
+        # Remove or disable the profile script
+        if rm -f "$PROFILE_SCRIPT" 2>/dev/null; then
+            echo "Auto-execution disabled."
+            log_message "INFO" "Auto-execution disabled"
+        else
+            echo "Warning: Could not remove auto-execution script."
+            log_message "WARN" "Failed to remove auto-execution script"
+        fi
+    else
+        echo "Auto-execution script not found."
+        log_message "INFO" "Auto-execution script not found"
+    fi
+}
+
+# Backup user configurations
+backup_user_configs() {
+    echo "Backing up user configurations..."
+    
+    local backup_dir="/tmp/welcome-art-backup-$(date +%Y%m%d-%H%M%S)"
+    local backed_up=false
+    
+    # Create backup directory
+    if mkdir -p "$backup_dir" 2>/dev/null; then
+        echo "Created backup directory: $backup_dir"
+        
+        # Backup system configuration
+        if [[ -f "$SYSTEM_CONFIG_DIR/config" ]]; then
+            if cp "$SYSTEM_CONFIG_DIR/config" "$backup_dir/system-config" 2>/dev/null; then
+                echo "System configuration backed up."
+                backed_up=true
+            fi
+        fi
+        
+        # Find and backup user configurations
+        local user_configs=()
+        while IFS= read -r -d '' config_file; do
+            user_configs+=("$config_file")
+        done < <(find /home -name ".welcome-artrc" -type f -print0 2>/dev/null || true)
+        
+        if [[ ${#user_configs[@]} -gt 0 ]]; then
+            echo "Found ${#user_configs[@]} user configuration(s)."
+            
+            for config in "${user_configs[@]}"; do
+                local username=$(basename "$(dirname "$config")")
+                local backup_file="$backup_dir/user-config-$username"
+                
+                if cp "$config" "$backup_file" 2>/dev/null; then
+                    echo "Backed up user config for: $username"
+                    backed_up=true
+                fi
+            done
+        fi
+        
+        # Backup custom art templates
+        local custom_templates=()
+        while IFS= read -r -d '' template_dir; do
+            custom_templates+=("$template_dir")
+        done < <(find /home -name ".welcome-art" -type d -print0 2>/dev/null || true)
+        
+        if [[ ${#custom_templates[@]} -gt 0 ]]; then
+            echo "Found ${#custom_templates[@]} custom template directory(ies)."
+            
+            for template_dir in "${custom_templates[@]}"; do
+                local username=$(basename "$(dirname "$template_dir")")
+                local backup_template_dir="$backup_dir/templates-$username"
+                
+                if cp -r "$template_dir" "$backup_template_dir" 2>/dev/null; then
+                    echo "Backed up custom templates for: $username"
+                    backed_up=true
+                fi
+            done
+        fi
+        
+        if [[ "$backed_up" == "true" ]]; then
+            echo "Configurations backed up to: $backup_dir"
+            echo "You can restore them after reinstallation if needed."
+            log_message "INFO" "User configurations backed up to $backup_dir"
+        else
+            echo "No user configurations found to backup."
+            rmdir "$backup_dir" 2>/dev/null || true
+            log_message "INFO" "No user configurations to backup"
+        fi
+    else
+        echo "Warning: Could not create backup directory."
+        log_message "WARN" "Failed to create backup directory"
+    fi
+}
+
+# Notify users about removal
+notify_users() {
+    echo "Notifying users about package removal..."
+    
+    # Create a temporary notification file
+    local notification_file="/tmp/welcome-art-removal-notice"
+    
+    cat > "$notification_file" << 'EOF'
+=====================================
+  WELCOME-ART REMOVAL NOTICE
+=====================================
+
+The Welcome-Art package is being removed from this system.
+
+* Auto-execution on SSH login has been disabled
+* System configurations will be removed
+* User configurations have been backed up to /tmp/
+* Custom templates have been backed up to /tmp/
+
+To completely remove user data:
+  rm -rf ~/.welcome-artrc ~/.welcome-art/
+
+To reinstall Welcome-Art:
+  Download and install the .deb package again
+
+For support: https://github.com/welcome-art/welcome-art
+
+=====================================
+EOF
+    
+    # Display notification
+    if [[ -f "$notification_file" ]]; then
+        cat "$notification_file"
+        
+        # Log the notification
+        log_message "INFO" "Removal notification displayed"
+        
+        # Clean up notification file
+        rm -f "$notification_file" 2>/dev/null || true
+    fi
+}
+
+# Validate removal safety
+validate_removal() {
+    echo "Validating removal safety..."
+    
+    # Check if any critical processes depend on welcome-art
+    local dependent_processes=$(pgrep -f "welcome-art" 2>/dev/null | wc -l)
+    
+    if [[ "$dependent_processes" -gt 0 ]]; then
+        echo "Warning: $dependent_processes process(es) may be using welcome-art."
+        log_message "WARN" "$dependent_processes processes may be affected by removal"
+    fi
+    
+    # Check for active SSH sessions
+    local ssh_sessions=$(who | grep -c "pts/" 2>/dev/null || echo "0")
+    
+    if [[ "$ssh_sessions" -gt 0 ]]; then
+        echo "Note: $ssh_sessions active SSH session(s) detected."
+        echo "Welcome-Art auto-execution will be disabled for new sessions."
+        log_message "INFO" "$ssh_sessions active SSH sessions during removal"
+    fi
+    
+    log_message "INFO" "Removal safety validation completed"
+}
+
+# Main removal process
+main() {
+    case "$1" in
+        remove|upgrade|deconfigure)
+            echo "Preparing to remove $PACKAGE_NAME..."
+            log_message "INFO" "Starting pre-removal process: $1"
+            
+            validate_removal
+            stop_processes
+            backup_user_configs
+            disable_auto_execution
+            notify_users
+            
+            log_message "INFO" "Pre-removal process completed: $1"
+            ;;
+        failed-upgrade)
+            echo "$PACKAGE_NAME upgrade failed, cleaning up..."
+            log_message "WARN" "Failed upgrade cleanup: $1"
+            
+            stop_processes
+            ;;
+        *)
+            echo "prerm called with unknown argument \`$1'" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"
+
+exit 0

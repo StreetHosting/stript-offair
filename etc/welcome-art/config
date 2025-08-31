@@ -1,0 +1,52 @@
+# Welcome-Art System Configuration
+# This file contains system-wide settings for the welcome-art package
+# User-specific overrides can be placed in ~/.welcome-artrc
+
+[display]
+# Default template to use for welcome art
+default_template=default
+
+# Default welcome text (supports variables: {{HOSTNAME}}, {{USER}})
+welcome_text="Welcome to {{HOSTNAME}}!"
+
+# Enable/disable color output
+color_enabled=true
+
+# Animation speed for color transitions
+animation_speed=medium
+
+[templates]
+# Repository URL for downloading templates
+repository_url=https://github.com/welcome-art/templates
+
+# Automatically update templates
+auto_update=false
+
+# Update interval (daily, weekly, monthly)
+update_interval=weekly
+
+[logging]
+# Log level (debug, info, warn, error)
+log_level=info
+
+# Log rotation (daily, weekly, monthly)
+log_rotation=daily
+
+# Maximum log file size
+max_log_size=10M
+
+[system]
+# Require 256-color terminal support
+require_256_color=true
+
+# Fallback mode for limited terminals
+fallback_mode=simple
+
+# Timeout for rendering (seconds)
+timeout=5
+
+# Enable system information display
+show_system_info=false
+
+# Show last login information
+show_last_login=false

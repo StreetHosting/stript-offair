@@ -1,0 +1,39 @@
+# Welcome-Art User Configuration Template
+# Copy this file to ~/.welcome-artrc to customize your personal settings
+# These settings override the system-wide configuration in /etc/welcome-art/config
+
+[display]
+# Personal template preference
+# template=modern
+
+# Personal welcome message (supports variables: {{HOSTNAME}}, {{USER}})
+# welcome_text="Welcome back, {{USER}}!"
+
+# Enable/disable color output for this user
+# color_enabled=true
+
+[personal]
+# Show system information (uptime, load, etc.)
+# show_system_info=true
+
+# Show last login information
+# show_last_login=false
+
+# Custom message to display
+# custom_message="Have a great day!"
+
+# Personal figlet font preference
+# figlet_font=slant
+
+# Personal color style
+# color_style=rainbow
+
+# Example configurations:
+# [display]
+# template=classic
+# welcome_text="Hello {{USER}}, welcome to {{HOSTNAME}}!"
+# color_enabled=true
+#
+# [personal]
+# show_system_info=true
+# custom_message="Ready to work!"

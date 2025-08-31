@@ -1,0 +1,44 @@
+# Classic Welcome-Art Template
+# Traditional design with conservative styling and elegant fonts
+
+[metadata]
+name=Classic
+author=Welcome-Art Team
+version=1.0
+description=Traditional design with elegant fonts and conservative colors
+
+[figlet]
+# Figlet font to use
+font=standard
+
+# Maximum width for figlet output
+width=80
+
+# Text alignment
+alignment=center
+
+[colors]
+# Color style for lolcat
+style=fire
+
+# Animation speed
+speed=slow
+
+# Reverse color direction
+reverse=true
+
+# Color frequency
+frequency=0.2
+
+[text]
+# Template content
+content={{HOSTNAME}}
+
+# Text to display before the figlet art
+prefix="═══════════════════════════════════════════"
+
+# Text to display after the figlet art
+suffix="═══════════════════════════════════════════"
+
+# Additional welcome message
+welcome_message="Welcome to {{HOSTNAME}}, {{USER}}. System ready for operation."
