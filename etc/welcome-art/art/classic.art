@@ -32,7 +32,7 @@ frequency=0.2
 
 [text]
 # Template content
-content={{HOSTNAME}}
+content=Street
 
 # Text to display before the figlet art
 prefix="═══════════════════════════════════════════"
@@ -41,4 +41,4 @@ prefix="════════════════════════
 suffix="═══════════════════════════════════════════"
 
 # Additional welcome message
-welcome_message="Welcome to {{HOSTNAME}}, {{USER}}. System ready for operation."
+welcome_message=""

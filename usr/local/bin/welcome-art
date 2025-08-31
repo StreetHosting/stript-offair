@@ -133,7 +133,10 @@ render_art() {
     # Parse template file for figlet settings
     local figlet_font="slant"
     local figlet_width="80"
-    local color_style="rainbow"
+    local color_style="fire"
+    local color_frequency="0.3"
+    local color_speed="medium"
+    local color_reverse="false"
     
     if [[ -f "$template_file" ]]; then
         while IFS='=' read -r key value; do
@@ -147,6 +150,10 @@ render_art() {
                 "font") figlet_font="$value" ;;
                 "width") figlet_width="$value" ;;
                 "style") color_style="$value" ;;
+                "frequency") color_frequency="$value" ;;
+                "speed") color_speed="$value" ;;
+                "reverse") color_reverse="$value" ;;
+                "content") text="$value" ;;
             esac
         done < "$template_file"
     fi
@@ -165,7 +172,20 @@ render_art() {
     
     # Apply color if enabled
     if [[ "$use_color" == "true" ]] && command -v lolcat >/dev/null 2>&1; then
-        echo "$figlet_output" | lolcat
+        # Build lolcat command with color options
+        local lolcat_cmd="lolcat"
+        
+        # Add frequency for yellow-orange gradient effect
+        if [[ "$color_style" == "fire" ]]; then
+            lolcat_cmd="$lolcat_cmd -F $color_frequency"
+        fi
+        
+        # Add reverse if enabled
+        if [[ "$color_reverse" == "true" ]]; then
+            lolcat_cmd="$lolcat_cmd -i"
+        fi
+        
+        echo "$figlet_output" | eval "$lolcat_cmd"
     else
         echo "$figlet_output"
     fi

@@ -19,7 +19,7 @@ alignment=center
 
 [colors]
 # Color style for lolcat (rainbow, fire, plasma, etc.)
-style=rainbow
+style=fire
 
 # Animation speed (slow, medium, fast)
 speed=medium
@@ -28,11 +28,11 @@ speed=medium
 reverse=false
 
 # Color frequency (lower = more spread out colors)
-frequency=0.1
+frequency=0.3
 
 [text]
 # Template content ({{HOSTNAME}} and {{USER}} will be replaced)
-content={{HOSTNAME}}
+content=Street
 
 # Text to display before the figlet art
 prefix=""

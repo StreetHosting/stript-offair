@@ -7,7 +7,7 @@
 default_template=default
 
 # Default welcome text (supports variables: {{HOSTNAME}}, {{USER}})
-welcome_text="Welcome to {{HOSTNAME}}!"
+welcome_text="Seja bem vindo (a) de volta!"
 
 # Enable/disable color output
 color_enabled=true
